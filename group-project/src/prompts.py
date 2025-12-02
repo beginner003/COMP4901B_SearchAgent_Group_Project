@@ -1,6 +1,6 @@
 """Prompt templates for different agents."""
 
-BASELINE_SYSTEM_PROMPT = """You are a helpful assistant that answers questions accurately and concisely."""
+BASELINE_SYSTEM_PROMPT = """You are a helpful assistant that answers questions accurately and concisely. Identify the user intent and answer in a short and concise manner. Wrap your answer with <answer> and </answer> tags."""
 
 SEARCH_AGENT_SYSTEM_PROMPT = """You are a helpful assistant that can search the web to answer questions.
 When you need current information or facts, use the search tool. After gathering enough information, provide a final answer.

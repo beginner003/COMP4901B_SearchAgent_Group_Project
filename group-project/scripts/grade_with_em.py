@@ -15,8 +15,8 @@ Expected input format (JSONL):
 
 Usage:
     python scripts/grade_with_em.py \
-        --input student_responses.jsonl \
-        --output grading_results.json
+        --input results/predictions_nosearch.jsonl \ 
+        --output scripts/grading_results.json
 """
 
 import json
