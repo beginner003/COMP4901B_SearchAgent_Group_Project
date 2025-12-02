@@ -1,7 +1,9 @@
 from typing import Dict, Any
 import requests
 from bs4 import BeautifulSoup
-from utils import load_config
+
+# Use absolute imports for consistency
+from src.utils import load_config
 """
 Tool definitions and execution functions.
 ========================================
@@ -36,21 +38,22 @@ def get_tools_schema(include_browse: bool = False) -> Dict[str, Any]:
             }]
     if include_browse:
         schemas.append({
-        "function": {
-            "name": "browse",
-            "description": "Fetch and extract text content from a web page URL. Use this when search results only provide snippets and you need full page content.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "The URL of the web page to browse"
-                    }
-                },
-                "required": ["url"]
+            "type": "function",
+            "function": {
+                "name": "browse",
+                "description": "Fetch and extract text content from a web page URL. Use this when search results only provide snippets and you need full page content.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "The URL of the web page to browse"
+                        }
+                    },
+                    "required": ["url"]
+                }
             }
-        }
-            })
+        })
     schemas.append( {
         "type": "function",
         "function": {
@@ -68,31 +71,80 @@ def get_tools_schema(include_browse: bool = False) -> Dict[str, Any]:
     return schemas
 
 
-def search_tool(query: str) -> str:
+def search_tool(query: str, num_results: int = 5) -> Dict[str, Any]:
     """
     Search the web using Google Search via Serper API.
+    
+    Returns a dictionary with:
+    - query: The search query
+    - num_docs_requested: Number of documents requested
+    - retrieved_documents: List of dicts with title, snippet, url
+    - llm_readable: Formatted string for LLM to read
     """
     config = load_config()
     api_key = config.get("SERPER_API_KEY")
+    
     if not api_key:
-        return "[search] Missing SERPER_API_KEY"
+        return {
+            "query": query,
+            "num_docs_requested": num_results,
+            "retrieved_documents": [],
+            "llm_readable": "[search] Missing SERPER_API_KEY"
+        }
+    
     try:
-        payload = {"q": query}
+        payload = {"q": query, "num": num_results}
         headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
         resp = requests.post("https://google.serper.dev/search", json=payload, headers=headers, timeout=15)
+        
         if resp.status_code != 200:
-            return f"[search] HTTP {resp.status_code}: {resp.text[:200]}"
+            error_msg = f"[search] HTTP {resp.status_code}: {resp.text[:200]}"
+            return {
+                "query": query,
+                "num_docs_requested": num_results,
+                "retrieved_documents": [],
+                "llm_readable": error_msg
+            }
+        
         data = resp.json()
         organic = data.get("organic", [])
-        lines = []
-        for i, item in enumerate(organic[:5], start=1):
+        
+        # Build retrieved_documents list
+        retrieved_documents = []
+        llm_lines = []
+        
+        for i, item in enumerate(organic[:num_results], start=1):
             title = item.get("title") or ""
             snippet = item.get("snippet") or ""
-            link = item.get("link") or ""
-            lines.append(f"{i}. {title}\n{snippet}\nURL: {link}")
-        return "\n\n".join(lines) if lines else "[search] No results"
+            url = item.get("link") or ""  
+            
+            # Add to retrieved_documents
+            retrieved_documents.append({
+                "title": title,
+                "snippet": snippet,
+                "url": url
+            })
+            
+            # Build LLM-readable format
+            llm_lines.append(f"{i}. {title}\n{snippet}\nURL: {url}")
+        
+        llm_readable = "\n\n".join(llm_lines) if llm_lines else "[search] No results"
+        
+        return {
+            "query": query,
+            "num_docs_requested": num_results,
+            "retrieved_documents": retrieved_documents,
+            "llm_readable": llm_readable
+        }
+        
     except Exception as e:
-        return f"[search] Error: {e}"
+        error_msg = f"[search] Error: {e}"
+        return {
+            "query": query,
+            "num_docs_requested": num_results,
+            "retrieved_documents": [],
+            "llm_readable": error_msg
+        }
 
 
 def browse_tool(url: str) -> str:
@@ -106,9 +158,9 @@ def browse_tool(url: str) -> str:
         soup = BeautifulSoup(resp.text, "html.parser")
         paragraphs = [p.get_text(separator=" ", strip=True) for p in soup.find_all("p")]
         text = "\n\n".join(paragraphs)
-        return text[:5000] if text else "[browse] No textual content"
+        return {"content": text[:5000] if text else "[browse] No textual content", "url": url}
     except Exception as e:
-        return f"[browse] Error: {e}"
+        return {"content": f"[browse] Error: {e}", "url": url}  
 
 def answer_tool() -> bool:
     """

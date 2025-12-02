@@ -15,14 +15,22 @@ Expected input format (JSONL):
 
 Usage:
     python scripts/grade_with_em.py \
-        --input results/predictions_nosearch.jsonl \ 
-        --output scripts/grading_results.json
+        --input results/nosearch/trial2/predictions_nosearch.jsonl \ 
+        --output results/nosearch/trial2/grading_results.json
 """
 
 import json
 import argparse
+import sys
+import os
 from typing import List, Dict, Any
 from tqdm import tqdm
+
+# Add parent directory to path so we can import from src
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+sys.path.insert(0, project_root)
+
 from src.metrics import exact_match_score, f1_score, extract_answer_from_text
 
 
