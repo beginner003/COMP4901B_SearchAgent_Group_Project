@@ -49,3 +49,17 @@ def call_deepseek(
     response = client.chat.completions.create(**kwargs)
     return response
 
+def read_jsonl(filepath: str) -> List[Dict[str, Any]]:
+    """Read JSONL file and return list of dicts."""
+    data = []
+    with open(filepath, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                data.append(json.loads(line))
+    return data
+ 
+def write_jsonl(filepath: str, data: List[Dict[str, Any]]):
+    """Write list of dicts to JSONL file."""
+    with open(filepath, 'w', encoding='utf-8') as f:
+        for item in data:
+            f.write(json.dumps(item, ensure_ascii=False) + '\n')

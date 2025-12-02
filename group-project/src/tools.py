@@ -10,9 +10,9 @@ Tools:
 - browse: Browse a web page using BeautifulSoup.
 - answer: Information gathered are enough to answer the user query. 
 """
-def get_tools_schema() -> Dict[str, Any]:
+def get_tools_schema(include_browse: bool = False) -> Dict[str, Any]:
     """Get schema for search tool for DeepSeek function calling format."""
-    return [{
+    schemas = [{
         "type": "function",
         "function": {
             "name": "search",
@@ -33,8 +33,9 @@ def get_tools_schema() -> Dict[str, Any]:
                 "required": ["query"]
             }
         }
-    },
-    {"type": "function",
+            }]
+    if include_browse:
+        schemas.append({
         "function": {
             "name": "browse",
             "description": "Fetch and extract text content from a web page URL. Use this when search results only provide snippets and you need full page content.",
@@ -49,8 +50,8 @@ def get_tools_schema() -> Dict[str, Any]:
                 "required": ["url"]
             }
         }
-    },
-    {
+            })
+    schemas.append( {
         "type": "function",
         "function": {
             "name": "answer",
@@ -62,8 +63,9 @@ def get_tools_schema() -> Dict[str, Any]:
                 "required": []
             }
         }
-    }
-    ]
+    })
+    
+    return schemas
 
 
 def search_tool(query: str) -> str:
