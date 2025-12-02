@@ -25,7 +25,7 @@ def agent_loop(question: str, max_steps: int = 6, config: Optional[Dict[str, str
     cfg = config or load_config()
     messages: List[Dict[str, Any]] = [
         {"role": "system", "content": SEARCH_AGENT_SYSTEM_PROMPT},
-        {"role": "user", "content": question},
+        {"role": "user", "content": f"Answer concisely with a short factual string. You should only contain the answer in the response without thinking process.\nQuestion: {question}"},
     ]
     tools = get_tools_schema_filtered(allowed_tools or ["search", "browse", "answer"])
     for _ in range(max_steps):
@@ -80,7 +80,7 @@ def agent_loop_with_trajectory(question: str, max_steps: int = 6, config: Option
     cfg = config or load_config()
     messages: List[Dict[str, Any]] = [
         {"role": "system", "content": SEARCH_AGENT_SYSTEM_PROMPT},
-        {"role": "user", "content": question},
+        {"role": "user", "content": f"Answer concisely with a short factual string. You should only contain the answer in the response without thinking process.\nQuestion: {question}"},
     ]
     tools = get_tools_schema_filtered(allowed_tools or ["search", "browse", "answer"])
     steps: List[Dict[str, Any]] = []
