@@ -134,6 +134,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "bs4" },
     { name = "dotenv" },
+    { name = "notion-client" },
     { name = "openai" },
     { name = "requests" },
     { name = "tqdm" },
@@ -143,6 +144,7 @@ dependencies = [
 requires-dist = [
     { name = "bs4", specifier = ">=0.0.2" },
     { name = "dotenv", specifier = ">=0.9.9" },
+    { name = "notion-client", specifier = ">=2.7.0" },
     { name = "openai", specifier = ">=2.8.1" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "tqdm", specifier = ">=4.67.1" },
@@ -243,6 +245,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/aa/51/2cb4468b3448a8385ebcd15059d325c9ce67df4e2758d133ab9442b19834/jiter-0.12.0-cp314-cp314t-win32.whl", hash = "sha256:8bbcfe2791dfdb7c5e48baf646d37a6a3dcb5a97a032017741dea9f817dca183", size = 205110, upload-time = "2025-11-09T20:48:47.033Z" },
     { url = "https://files.pythonhosted.org/packages/b2/c5/ae5ec83dec9c2d1af805fd5fe8f74ebded9c8670c5210ec7820ce0dbeb1e/jiter-0.12.0-cp314-cp314t-win_amd64.whl", hash = "sha256:2fa940963bf02e1d8226027ef461e36af472dea85d36054ff835aeed944dd873", size = 205223, upload-time = "2025-11-09T20:48:49.076Z" },
     { url = "https://files.pythonhosted.org/packages/97/9a/3c5391907277f0e55195550cf3fa8e293ae9ee0c00fb402fec1e38c0c82f/jiter-0.12.0-cp314-cp314t-win_arm64.whl", hash = "sha256:506c9708dd29b27288f9f8f1140c3cb0e3d8ddb045956d7757b1fa0e0f39a473", size = 185564, upload-time = "2025-11-09T20:48:50.376Z" },
+]
+
+[[package]]
+name = "notion-client"
+version = "2.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9b/ff/06695dca5d0691346fbd89ba300a2ceeeaf0b0632fe8235b588e83e505a3/notion_client-2.7.0.tar.gz", hash = "sha256:31bde3ae03ede77650cadce136152916efdd86579ff65f49fc6705fbe462e2fb", size = 26384, upload-time = "2025-10-31T12:10:15.264Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/6a/9716315432f5aba4c82979f9677aeb101018f0e790835721dc4e01deb933/notion_client-2.7.0-py2.py3-none-any.whl", hash = "sha256:9057a8ac2103ff245556c2a5102bde1d2ccdd3505f66bcc130fc31857731d91e", size = 16999, upload-time = "2025-10-31T12:10:13.835Z" },
 ]
 
 [[package]]

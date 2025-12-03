@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "bs4>=0.0.2",
     "dotenv>=0.9.9",
+    "notion-client>=2.7.0",
     "openai>=2.8.1",
     "requests>=2.32.5",
     "tqdm>=4.67.1",

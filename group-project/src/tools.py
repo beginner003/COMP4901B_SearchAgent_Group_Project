@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Optional
 from typing import Dict, Any, List
 import requests
 from bs4 import BeautifulSoup
-from utils import load_config
+from .utils import load_config
 """
 Tool definitions and execution functions.
 ========================================
@@ -140,6 +140,41 @@ def answer_tool() -> Dict[str, Any]:
     Information gathered are enough to answer the user query.
     """
     return {"text": "[answer] ready", "log": {"action": "answer"}}
+
+def calendar_create_event(
+    summary: str,
+    description: str,
+    start_iso: str,
+    end_iso: str,
+    attendees_emails: List[str],
+    calendar_id: Optional[str] = None,
+    timezone: Optional[str] = None
+) -> Dict[str, Any]:
+    cfg = load_config()
+    token = cfg.get("GOOGLE_CALENDAR_ACCESS_TOKEN") or cfg.get("GMAIL_ACCESS_TOKEN")
+    if not token:
+        return {"created": False, "error": "Missing GOOGLE_CALENDAR_ACCESS_TOKEN", "id": "", "htmlLink": ""}
+    cal_id = calendar_id or "primary"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    body: Dict[str, Any] = {
+        "summary": summary,
+        "description": description,
+        "start": {"dateTime": start_iso},
+        "end": {"dateTime": end_iso},
+        "attendees": [{"email": e} for e in attendees_emails],
+    }
+    if timezone:
+        body["start"]["timeZone"] = timezone
+        body["end"]["timeZone"] = timezone
+    url = f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events"
+    try:
+        resp = requests.post(url, json=body, headers=headers, timeout=15)
+        if resp.status_code not in (200, 201):
+            return {"created": False, "error": f"HTTP {resp.status_code}: {resp.text[:300]}", "id": "", "htmlLink": ""}
+        data = resp.json()
+        return {"created": True, "id": data.get("id", ""), "htmlLink": data.get("htmlLink", "")}
+    except Exception as e:
+        return {"created": False, "error": str(e), "id": "", "htmlLink": ""}
 
 # Gmail API helper
 def gmail_send_email(to_emails: List[str], subject: str, body_text: str) -> Dict[str, Any]:

@@ -17,7 +17,8 @@ def load_config() -> Dict[str, str]:
         "DEEPSEEK_REASONING_MODEL": "deepseek-reasoner",
         "NOTION_API_KEY": os.getenv("NOTION_API_KEY"),
         "NOTION_DATABASE_ID": os.getenv("NOTION_DATABASE_ID"),
-        "GMAIL_ACCESS_TOKEN": os.getenv("GMAIL_ACCESS_TOKEN")
+        "GMAIL_ACCESS_TOKEN": os.getenv("GMAIL_ACCESS_TOKEN"),
+        "GOOGLE_CALENDAR_ACCESS_TOKEN": os.getenv("GOOGLE_CALENDAR_ACCESS_TOKEN")
     }
 
 def call_deepseek(

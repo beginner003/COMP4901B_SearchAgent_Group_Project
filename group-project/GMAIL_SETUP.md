@@ -92,3 +92,5 @@ For long-running automation, implement the OAuth “installed app” flow to sto
 ## Security
 - Do not commit tokens to version control.
 - Restrict access to your Cloud project and OAuth credentials.
+
+PYTHONPATH=. uv run python src/main.py --mode meeting_agent --request "Plan a meeting next Tuesday at 2pm to discuss our project progress. Include agenda items about: demo preparation, code review, and documentation updates. Invite team members: tianyuuu209@gmail.com" --attendees "tianyuuu209@gmail.com" --timezone "Asia/Hong_Kong" --suggestion_query "best practices for final year project demos" --traj_out results/meeting_trajectories.jsonl
