@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Optional
 from typing import Dict, Any, List
 import requests
 from bs4 import BeautifulSoup
-from .utils import load_config
+from utils import load_config
 """
 Tool definitions and execution functions.
 ========================================
@@ -269,47 +269,11 @@ def read_notion_database(
     try:
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "Notion-Version": "2025-09-03",
+            "Notion-Version": "2022-06-28",
             "Content-Type": "application/json"
         }
-        
-        # Step 1: Retrieve the database to get the data source ID(s)
-        # According to Notion API v2025-09-03, databases contain data sources
-        # We need to query the data source, not the database directly
-        retrieve_db_url = f"https://api.notion.com/v1/databases/{database_id}"
-        db_resp = requests.get(retrieve_db_url, headers=headers, timeout=10)
-        
-        if db_resp.status_code != 200:
-            error_text = db_resp.text[:500]
-            raise Exception(f"Failed to retrieve database {db_resp.status_code}: {error_text}")
-        
-        try:
-            db_data = db_resp.json()
-        except Exception as e:
-            raise Exception(f"Failed to parse database response: {e}")
-        
-        if db_data is None:
-            raise Exception("Database response is None")
-        
-        data_sources = db_data.get("data_sources", [])
-        
-        if not data_sources:
-            raise Exception("Database has no data sources")
-        
-        # Use the first data source (most databases have only one)
-        first_data_source = data_sources[0]
-        if first_data_source is None:
-            raise Exception("First data source is None")
-        
-        if not isinstance(first_data_source, dict):
-            raise Exception(f"Data source is not a dictionary: {type(first_data_source)}")
-        
-        data_source_id = first_data_source.get("id")
-        if not data_source_id:
-            raise Exception("Data source ID not found")
-        
-        # Step 2: Query the data source using the data source ID
-        query_url = f"https://api.notion.com/v1/data_sources/{data_source_id}/query"
+        # Query the database directly using the standard endpoint
+        query_url = f"https://api.notion.com/v1/databases/{database_id}/query"
         
         payload = {
             "page_size": min(max_results, 100)
@@ -589,34 +553,41 @@ def create_notion_page(
         }
     
     try:
-        # First, get the data source ID from the database
-        # According to Notion API v2025-09-03, we need to use data_source_id as parent
-        retrieve_db_url = f"https://api.notion.com/v1/databases/{database_id}"
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "Notion-Version": "2025-09-03",
+            "Notion-Version": "2022-06-28",
             "Content-Type": "application/json"
         }
-        
-        db_resp = requests.get(retrieve_db_url, headers=headers, timeout=10)
+        db_resp = requests.get(f"https://api.notion.com/v1/databases/{database_id}", headers=headers, timeout=10)
         if db_resp.status_code != 200:
             error_text = db_resp.text[:500]
             raise Exception(f"Failed to retrieve database {db_resp.status_code}: {error_text}")
-        
         db_data = db_resp.json()
-        data_sources = db_data.get("data_sources", [])
-        
-        if not data_sources:
-            raise Exception("Database has no data sources")
-        
-        # Use the first data source
-        data_source_id = data_sources[0].get("id")
-        if not data_source_id:
-            raise Exception("Data source ID not found")
-        
-        # Build properties dict
-        page_properties = {
-            "Meeting Title": {
+        props = db_data.get("properties", {})
+        title_prop_name = None
+        date_prop_name = None
+        status_prop_name = None
+        attendees_prop_name = None
+        discussion_prop_name = None
+        action_prop_name = None
+        for name, info in props.items():
+            t = info.get("type")
+            if t == "title" and not title_prop_name:
+                title_prop_name = name
+            elif t == "date" and not date_prop_name:
+                date_prop_name = name
+            elif t == "status" and not status_prop_name:
+                status_prop_name = name
+            elif t == "multi_select" and not attendees_prop_name:
+                attendees_prop_name = name
+            elif t == "rich_text" and not discussion_prop_name:
+                discussion_prop_name = name
+            elif t == "rich_text" and not action_prop_name:
+                action_prop_name = name
+        if not title_prop_name:
+            title_prop_name = "Name"
+        page_properties: Dict[str, Any] = {
+            title_prop_name: {
                 "title": [
                     {
                         "text": {
@@ -628,70 +599,28 @@ def create_notion_page(
         }
         
         # Add Meeting Date if provided
-        if meeting_date:
-            page_properties["Meeting Date"] = {
-                "date": {
-                    "start": meeting_date
-                }
-            }
+        if meeting_date and date_prop_name:
+            page_properties[date_prop_name] = {"date": {"start": meeting_date}}
         
         # Add Status if provided
-        if status:
-            valid_statuses = ["Scheduled", "Ongoing", "Completed", "Cancelled"]
-            if status in valid_statuses:
-                page_properties["Status"] = {
-                    "status": {
-                        "name": status
-                    }
-                }
-            else:
-                raise ValueError(f"Invalid status: {status}. Must be one of {valid_statuses}")
+        if status and status_prop_name:
+            page_properties[status_prop_name] = {"status": {"name": status}}
         
         # Add Attendees if provided
-        if attendees is not None:
-            if isinstance(attendees, list):
-                page_properties["Attendees"] = {
-                    "multi_select": [
-                        {"name": attendee} for attendee in attendees
-                    ]
-                }
-            else:
-                raise ValueError("Attendees must be a list")
+        if attendees is not None and attendees_prop_name and isinstance(attendees, list):
+            page_properties[attendees_prop_name] = {"multi_select": [{"name": a} for a in attendees]}
         
         # Add Discussion Topics if provided
-        if discussion_topics is not None:
-            page_properties["Discussion Topics"] = {
-                "rich_text": [
-                    {
-                        "text": {
-                            "content": str(discussion_topics)
-                        }
-                    }
-                ]
-            }
+        if discussion_topics is not None and discussion_prop_name:
+            page_properties[discussion_prop_name] = {"rich_text": [{"text": {"content": str(discussion_topics)}}]}
         
         # Add Action Items if provided
-        if action_items is not None:
-            page_properties["Action Items"] = {
-                "rich_text": [
-                    {
-                        "text": {
-                            "content": str(action_items)
-                        }
-                    }
-                ]
-            }
+        if action_items is not None and action_prop_name:
+            page_properties[action_prop_name] = {"rich_text": [{"text": {"content": str(action_items)}}]}
         
         # Build payload
-        payload = {
-            "parent": {
-                "type": "data_source_id",
-                "data_source_id": data_source_id
-            },
-            "properties": page_properties
-        }
+        payload = {"parent": {"database_id": database_id}, "properties": page_properties}
         
-        # Add children if provided (use as-is, assuming they follow Notion API format)
         if children:
             payload["children"] = children
         
@@ -834,7 +763,7 @@ def update_notion_page(
         update_url = f"https://api.notion.com/v1/pages/{page_id}"
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "Notion-Version": "2025-09-03",
+            "Notion-Version": "2022-06-28",
             "Content-Type": "application/json"
         }
         

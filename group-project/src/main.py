@@ -105,20 +105,61 @@ def main():
             cal_result = calendar_create_event(title, agenda_text, start_iso, end_iso, parsed.get("attendees") or attendees, calendar_id=args.calendar_id, timezone=tz)
         steps.append({"step_number": 3, "action": "calendar_create", "result": cal_result})
         notion_link = None
-        from src.utils import load_config as _lc
-        dbid = _lc().get("NOTION_DATABASE_ID")
-        if dbid:
-            notion_res = create_notion_page(dbid, title, meeting_date=date or None, status="Scheduled", attendees=(parsed.get("attendees") or attendees), discussion_topics=", ".join(parsed.get("topics", [])), action_items="")
-            notion_link = notion_res.get("url")
-            steps.append({"step_number": 4, "action": "notion_update", "result": notion_res})
-        else:
-            steps.append({"step_number": 4, "action": "notion_update", "error": "Missing NOTION_DATABASE_ID"})
+        # Prepare suggestions before creating Notion children so they can be included
         suggest_query = args.suggestion_query or (f"best practices for {parsed.get('topics')[0]}" if parsed.get("topics") else None)
         suggestions_text = None
         if suggest_query:
             sres = search_tool(suggest_query)
             suggestions_text = sres.get("text") if isinstance(sres, dict) else str(sres)
             steps.append({"step_number": 5, "action": "search", "query": suggest_query, "log": sres.get("log") if isinstance(sres, dict) else {}})
+
+        from src.utils import load_config as _lc
+        dbid = _lc().get("NOTION_DATABASE_ID")
+        if dbid:
+            children = [
+                {
+                    "object": "block",
+                    "type": "heading_2",
+                    "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Agenda"}}]}
+                },
+                {
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": agenda_text[:1900]}}]}
+                }
+            ]
+            if cal_result.get("htmlLink"):
+                children.append({
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": f"Calendar: {cal_result.get('htmlLink')}"}}]}
+                })
+            if suggestions_text:
+                children.append({
+                    "object": "block",
+                    "type": "heading_3",
+                    "heading_3": {"rich_text": [{"type": "text", "text": {"content": "Resources"}}]}
+                })
+                children.append({
+                    "object": "block",
+                    "type": "paragraph",
+                    "paragraph": {"rich_text": [{"type": "text", "text": {"content": suggestions_text[:1900]}}]}
+                })
+            notion_res = create_notion_page(
+                dbid,
+                title,
+                meeting_date=date or None,
+                status="Scheduled",
+                attendees=(parsed.get("attendees") or attendees),
+                discussion_topics=", ".join(parsed.get("topics", [])),
+                action_items="",
+                children=children
+            )
+            notion_link = notion_res.get("url")
+            steps.append({"step_number": 4, "action": "notion_update", "result": notion_res})
+        else:
+            steps.append({"step_number": 4, "action": "notion_update", "error": "Missing NOTION_DATABASE_ID"})
+        # suggestions_text already computed above, use in email body if present
         body_parts = []
         if cal_result.get("htmlLink"):
             body_parts.append(f"Calendar: {cal_result.get('htmlLink')}")
