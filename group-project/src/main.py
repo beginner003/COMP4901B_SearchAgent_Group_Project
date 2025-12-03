@@ -4,13 +4,19 @@ from typing import Optional
 from tqdm import tqdm
 from agent import agent_loop, generate_no_search
 from agent import agent_loop_with_trajectory
+from tools import gmail_send_email, search_tool
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default=None)
     parser.add_argument("--output", type=str, default=None)
-    parser.add_argument("--mode", choices=["interactive", "no_search", "search_only", "browse"], default="interactive")
+    parser.add_argument("--mode", choices=["interactive", "no_search", "search_only", "browse", "meeting_email"], default="interactive")
+    parser.add_argument("--subject", type=str, default=None)
+    parser.add_argument("--attendees", type=str, default=None, help="Comma-separated emails for meeting notifications")
+    parser.add_argument("--calendar_link", type=str, default=None)
+    parser.add_argument("--notion_link", type=str, default=None)
+    parser.add_argument("--suggestion_query", type=str, default=None)
     args = parser.parse_args()
 
     if args.mode == "interactive":
@@ -22,6 +28,25 @@ def main():
             question = "What is the capital of France?"
         answer = agent_loop(question, allowed_tools=["search", "browse", "answer"])
         print(answer)
+        return
+
+    if args.mode == "meeting_email":
+        if not args.subject or not args.attendees:
+            print("Missing --subject or --attendees for meeting_email mode")
+            return
+        attendees = [e.strip() for e in args.attendees.split(",") if e.strip()]
+        body_parts = []
+        if args.calendar_link:
+            body_parts.append(f"Calendar: {args.calendar_link}")
+        if args.notion_link:
+            body_parts.append(f"Notion: {args.notion_link}")
+        if args.suggestion_query:
+            search_res = search_tool(args.suggestion_query)
+            suggestions_text = search_res.get("text") if isinstance(search_res, dict) else str(search_res)
+            body_parts.append("Resources:\n" + suggestions_text)
+        body_text = "\n\n".join(body_parts) if body_parts else "Meeting scheduled."
+        send_res = gmail_send_email(attendees, args.subject, body_text)
+        print(send_res)
         return
 
     if not args.dataset or not args.output:

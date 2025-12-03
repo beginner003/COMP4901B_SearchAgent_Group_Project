@@ -53,9 +53,8 @@ def get_tools_schema(include_browse: bool = False, include_part2_tools: bool = F
                 "required": ["url"]
             }
         }
-        })
-    schemas.append({
-        "type": "function",
+    },
+    {"type": "function",
         "function": {
             "name": "answer",
             "description": "Information gathered are enough to answer the user query. Use this when you have enough information to answer the user query.",
@@ -141,6 +140,32 @@ def answer_tool() -> Dict[str, Any]:
     Information gathered are enough to answer the user query.
     """
     return {"text": "[answer] ready", "log": {"action": "answer"}}
+
+# Gmail API helper
+def gmail_send_email(to_emails: List[str], subject: str, body_text: str) -> Dict[str, Any]:
+    """
+    Send an email using Gmail API via OAuth access token in env `GMAIL_ACCESS_TOKEN`.
+    Returns a dict with send status and identifiers or error.
+    """
+    import base64
+    cfg = load_config()
+    token = cfg.get("GMAIL_ACCESS_TOKEN")
+    if not token:
+        return {"sent": False, "error": "Missing GMAIL_ACCESS_TOKEN", "recipients": to_emails}
+    try:
+        to_header = ", ".join(to_emails)
+        raw = f"To: {to_header}\r\nSubject: {subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body_text}".encode("utf-8")
+        b64 = base64.urlsafe_b64encode(raw).decode("utf-8")
+        url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        payload = {"raw": b64}
+        resp = requests.post(url, json=payload, headers=headers, timeout=15)
+        if resp.status_code != 200:
+            return {"sent": False, "error": f"HTTP {resp.status_code}: {resp.text[:300]}", "recipients": to_emails}
+        data = resp.json()
+        return {"sent": True, "id": data.get("id"), "threadId": data.get("threadId"), "recipients": to_emails}
+    except Exception as e:
+        return {"sent": False, "error": str(e), "recipients": to_emails}
 
 """
 Extra tools for Part II --  Realistic agent with multiple tools.
