@@ -14,7 +14,9 @@ def load_config() -> Dict[str, str]:
         "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY"),
         "DEEPSEEK_BASE_URL": "https://api.deepseek.com/v1",
         "DEEPSEEK_CHAT_MODEL": "deepseek-chat",
-        "DEEPSEEK_REASONING_MODEL": "deepseek-reasoner"
+        "DEEPSEEK_REASONING_MODEL": "deepseek-reasoner",
+        "NOTION_API_KEY": os.getenv("NOTION_API_KEY"),
+        "NOTION_DATABASE_ID": os.getenv("NOTION_DATABASE_ID")  
     }
 
 def call_deepseek(
@@ -49,3 +51,17 @@ def call_deepseek(
     response = client.chat.completions.create(**kwargs)
     return response
 
+def read_jsonl(filepath: str) -> List[Dict[str, Any]]:
+    """Read JSONL file and return list of dicts."""
+    data = []
+    with open(filepath, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                data.append(json.loads(line))
+    return data
+ 
+def write_jsonl(filepath: str, data: List[Dict[str, Any]]):
+    """Write list of dicts to JSONL file."""
+    with open(filepath, 'w', encoding='utf-8') as f:
+        for item in data:
+            f.write(json.dumps(item, ensure_ascii=False) + '\n')

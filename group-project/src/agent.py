@@ -1,8 +1,11 @@
 import json
 from tools import search_tool, browse_tool, answer_tool, get_tools_schema_filtered
 from typing import Dict, Any, List, Optional
-from utils import call_deepseek, load_config
-from prompts import SEARCH_AGENT_SYSTEM_PROMPT, BASELINE_SYSTEM_PROMPT
+
+# Use absolute imports (works with PYTHONPATH=. and when imported as package)
+from src.tools import search_tool, browse_tool, answer_tool, get_tools_schema
+from src.utils import call_deepseek, load_config
+from src.prompts import BASELINE_SYSTEM_PROMPT, SEARCH_AGENT_SYSTEM_PROMPT, REAL_WORLD_AGENT_SYSTEM_PROMPT
 
 class BaseAgent:
     """Base class for all agents."""
