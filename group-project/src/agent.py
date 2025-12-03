@@ -130,9 +130,23 @@ class SearchAgent(BaseAgent):
                 print(f"\n  → Tool calls detected: {len(assistant_message.tool_calls)}")
                 for idx, tool_call in enumerate(assistant_message.tool_calls, 1):
                     tool_name = tool_call.function.name
-                    tool_args = json.loads(tool_call.function.arguments)
+                    raw_args = tool_call.function.arguments
                     print(f"\n  [{idx}/{len(assistant_message.tool_calls)}] Executing tool: {tool_name}")
-                    print(f"      Args: {tool_args}")
+                    print(f"      Raw args string: {raw_args[:200]}...")
+                    
+                    # Parse JSON arguments with error handling
+                    try:
+                        tool_args = json.loads(raw_args)
+                        if not isinstance(tool_args, dict):
+                            print(f"      ⚠ Warning: tool_args is not a dict, converting...")
+                            tool_args = {}
+                        print(f"      Parsed args: {tool_args}")
+                    except json.JSONDecodeError as e:
+                        print(f"      ✗ JSON decode error: {e}")
+                        print(f"      Raw string (first 500 chars): {repr(raw_args[:500])}")
+                        # Try to fix common issues or use empty dict
+                        tool_args = {}
+                        print(f"      Using empty args dict as fallback")
                     
                     tool_result = self.tools_execution(tool_name, tool_args)
                     print(f"      ✓ Tool executed")
@@ -241,8 +255,7 @@ class SearchAgent(BaseAgent):
             trajectory_json = {
                 "question": result.get('user_query', 'N/A'),
                 "steps": result.get('steps', []),
-                "final_answer": result.get('final_answer', 'N/A'),
-                "total_search_steps": result.get('total_steps', 'N/A'),
+                "total_search_steps": len([s for s in result.get('steps', []) if s.get('action') == 'search']),
             }
         print("\n3. Results:")
         print(f"   Question: {result.get('user_query', 'N/A')}")

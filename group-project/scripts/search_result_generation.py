@@ -12,24 +12,25 @@ from src.utils import read_jsonl, write_jsonl
 
 
 def main():
-    agent = SearchAgent(max_tokens=32, max_steps=10, include_browse=False)
+    agent = SearchAgent(max_tokens=1024, max_steps=3, include_browse=False)
     data = read_jsonl("data/nq_test_100.jsonl")
     
     predictions = []
     for item in data:
         print(f"Answering question: {item['question']}")
         result = agent.agent_loop(item["question"])
-        trajectory  = agent.print_trajectory(result, save_as_json=True)
+        trajectory = agent.print_trajectory(result, save_as_json=True)
         prediction = {
             "id": item["id"],
             "question": item["question"],
-            "ground_truths": item["answers"],
+            "answers": item["answers"],
+            "llm_response": result.get('final_answer', 'N/A'),
             "trajectory": trajectory
         }
         predictions.append(prediction)
         
-
-    write_jsonl("results/search/trial1/predictions_search_no_browse.jsonl", predictions)
+    os.makedirs("results/withsearch/trial1", exist_ok=True)
+    write_jsonl("results/withsearch/trial1/predictions_search_no_browse.jsonl", predictions)
 
 if __name__ == "__main__":
     main()

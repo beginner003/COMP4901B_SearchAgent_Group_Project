@@ -14,7 +14,9 @@ def load_config() -> Dict[str, str]:
         "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY"),
         "DEEPSEEK_BASE_URL": "https://api.deepseek.com/v1",
         "DEEPSEEK_CHAT_MODEL": "deepseek-chat",
-        "DEEPSEEK_REASONING_MODEL": "deepseek-reasoner"
+        "DEEPSEEK_REASONING_MODEL": "deepseek-reasoner",
+        "NOTION_API_KEY": os.getenv("NOTION_API_KEY"),
+        "NOTION_DATABASE_ID": os.getenv("NOTION_DATABASE_ID")  
     }
 
 def call_deepseek(
