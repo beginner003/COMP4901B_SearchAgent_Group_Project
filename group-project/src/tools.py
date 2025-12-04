@@ -77,14 +77,10 @@ def get_tools_schema(include_browse: bool = False, include_part2_tools: bool = F
                 "type": "function",
                 "function": {
                     "name": "read_notion_database",
-                    "description": "Read pages from a Notion database. Use this to retrieve existing meeting agendas, check meeting history, or get project status from the FYP database. You can filter by any combination of properties. Leave filter parameters empty if not needed.",
+                    "description": "Read pages from a Notion database. Use this to retrieve existing meeting agendas, check meeting history, or get project status from the FYP database. You can filter by any combination of properties. Leave filter parameters empty if not needed. The database ID is automatically retrieved from configuration.",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "database_id": {
-                                "type": "string",
-                                "description": "The ID of the Notion database to query"
-                            },
                             "status_filter": {
                                 "type": "object",
                                 "description": "Filter by Status property. Leave empty if not filtering by status.",
@@ -171,7 +167,7 @@ def get_tools_schema(include_browse: bool = False, include_part2_tools: bool = F
                                 "default": 10
                             }
                         },
-                        "required": ["database_id"]
+                        "required": []
                     }
                 }
             },
@@ -179,14 +175,10 @@ def get_tools_schema(include_browse: bool = False, include_part2_tools: bool = F
                 "type": "function",
                 "function": {
                     "name": "create_notion_page",
-                    "description": "Create a new page in a Notion database. Use this to add a new meeting agenda entry to the FYP database. Leave property parameters empty if not setting that property.",
+                    "description": "Create a new page in a Notion database. Use this to add a new meeting agenda entry to the FYP database. Leave property parameters empty if not setting that property. The database ID is automatically retrieved from configuration.",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "database_id": {
-                                "type": "string",
-                                "description": "The ID of the Notion database where the page will be created"
-                            },
                             "title": {
                                 "type": "string",
                                 "description": "Title of the new page (e.g., 'FYP Meeting - 2024-12-05')"
@@ -340,7 +332,7 @@ def get_tools_schema(include_browse: bool = False, include_part2_tools: bool = F
                                 "description": "Content blocks (children) for the page following Notion API format. Leave empty if not adding content blocks."
                             }
                         },
-                        "required": ["database_id", "title"]
+                        "required": ["title"]
                     }
                 }
             },
@@ -380,6 +372,84 @@ def get_tools_schema(include_browse: bool = False, include_part2_tools: bool = F
                             }
                         },
                         "required": ["page_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "send_email",
+                    "description": "Send an email notification using Gmail API. Use this to send meeting agendas, reminders, or updates to attendees.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "to": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of recipient email addresses"
+                            },
+                            "subject": {
+                                "type": "string",
+                                "description": "Email subject line"
+                            },
+                            "body": {
+                                "type": "string",
+                                "description": "Email body content (plain text or HTML)"
+                            },
+                            "cc": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of CC email addresses. Leave empty if not needed."
+                            },
+                            "bcc": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of BCC email addresses. Leave empty if not needed."
+                            }
+                        },
+                        "required": ["to", "subject", "body"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_calendar_event",
+                    "description": "Create a calendar event using Google Calendar API. Use this to schedule meetings and send calendar invitations.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "summary": {
+                                "type": "string",
+                                "description": "Event title/summary"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Event description/details. Leave empty if not needed."
+                            },
+                            "start_time": {
+                                "type": "string",
+                                "description": "Event start time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS) or RFC3339 format. Include timezone if possible."
+                            },
+                            "end_time": {
+                                "type": "string",
+                                "description": "Event end time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS) or RFC3339 format. Include timezone if possible."
+                            },
+                            "attendees": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of attendee email addresses. Leave empty if no attendees."
+                            },
+                            "location": {
+                                "type": "string",
+                                "description": "Event location (physical address or meeting link). Leave empty if not needed."
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "description": "Timezone for the event (e.g., 'Asia/Hong_Kong', 'America/New_York'). Defaults to system timezone if not specified."
+                            }
+                        },
+                        "required": ["summary", "start_time", "end_time"]
                     }
                 }
             }
@@ -495,7 +565,6 @@ Extra tools for Part II --  Realistic agent with multiple tools.
 # ============================================================================
 
 def read_notion_database(
-    database_id: str,
     status_filter: Optional[Dict[str, Any]] = None,
     meeting_date_filter: Optional[Dict[str, Any]] = None,
     attendees_filter: Optional[Dict[str, Any]] = None,
@@ -528,25 +597,17 @@ def read_notion_database(
             "llm_readable": "Found 5 meeting agendas:\n..."
         }
     """
-    try:
-        from notion_client import Client
-    except ImportError:
-        return {
-            "database_id": database_id,
-            "pages": [],
-            "total_found": 0,
-            "llm_readable": "[notion] Error: notion-client not installed. Run: pip install notion-client"
-        }
     
     config = load_config()
     api_key = config.get("NOTION_API_KEY")
+    database_id = config.get("NOTION_DATABASE_ID")
     
-    if not api_key:
+    if not api_key or not database_id:
         return {
             "database_id": database_id,
             "pages": [],
             "total_found": 0,
-            "llm_readable": "[notion] Missing NOTION_API_KEY"
+            "llm_readable": "[notion] Missing NOTION_API_KEY or DATABASE_ID"
         }
     
     try:
@@ -796,8 +857,9 @@ def read_notion_database(
             pages.append(page_info)
             
             # Build LLM-readable format
+            # Add page id
             props_str = ", ".join([f"{k}: {v}" for k, v in page_props.items()])
-            llm_lines.append(f"- {title} ({props_str})")
+            llm_lines.append(f"- Title: {title} | Properties: {props_str} | Page ID: {page.get('id')} | URL: {page.get('url', '')}")
         
         llm_readable = f"Found {len(pages)} pages:\n" + "\n".join(llm_lines) if llm_lines else "No pages found"
         
@@ -825,7 +887,6 @@ def read_notion_database(
 
 
 def create_notion_page(
-    database_id: str,
     title: str,
     meeting_date: Optional[str] = None,
     status: Optional[str] = None,
@@ -840,8 +901,9 @@ def create_notion_page(
     According to Notion API v2025-09-03: POST /v1/pages
     See: https://developers.notion.com/reference/post-page
     
+    The database ID is automatically retrieved from configuration (NOTION_DATABASE_ID).
+    
     Parameters:
-        database_id: ID of the database where the page will be created
         title: Title of the new page
         meeting_date: Optional date in ISO 8601 format (YYYY-MM-DD)
         status: Optional status (Scheduled, Ongoing, Completed, Cancelled)
@@ -861,6 +923,7 @@ def create_notion_page(
     """
     config = load_config()
     api_key = config.get("NOTION_API_KEY")
+    database_id = config.get("NOTION_DATABASE_ID")
     
     if not api_key:
         return {
@@ -869,6 +932,15 @@ def create_notion_page(
             "url": "",
             "created": False,
             "llm_readable": "[notion] Missing NOTION_API_KEY"
+        }
+    
+    if not database_id:
+        return {
+            "page_id": "",
+            "title": title,
+            "url": "",
+            "created": False,
+            "llm_readable": "[notion] Missing NOTION_DATABASE_ID in configuration"
         }
     
     try:
@@ -996,7 +1068,7 @@ def create_notion_page(
             "title": title,
             "url": page_url,
             "created": True,
-            "llm_readable": f"Created new page '{title}' at {page_url}"
+            "llm_readable": f"Created new page '{title}' with page id {page_id}"
         }
         
     except Exception as e:
@@ -1139,7 +1211,7 @@ def update_notion_page(
             "page_id": page_id,
             "updated": True,
             "url": page_url,
-            "llm_readable": f"Updated page at {page_url}"
+            "llm_readable": f"Updated page with page id {page_id}"
         }
         
     except Exception as e:
@@ -1148,5 +1220,226 @@ def update_notion_page(
             "page_id": page_id,
             "updated": False,
             "url": "",
+            "llm_readable": error_msg
+        }
+
+# ============================================================================
+# Email and Calendar Tools for FYP Meeting Agenda Automation
+# ============================================================================
+
+def send_email(
+    to: List[str],
+    subject: str,
+    body: str,
+    cc: Optional[List[str]] = None,
+    bcc: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """
+    Send an email notification using Gmail API.
+    
+    Parameters:
+        to: List of recipient email addresses
+        subject: Email subject line
+        body: Email body content (plain text or HTML)
+        cc: Optional list of CC email addresses
+        bcc: Optional list of BCC email addresses
+    
+    Returns:
+        {
+            "sent": True/False,
+            "id": "message_id",
+            "threadId": "thread_id",
+            "recipients": [...],
+            "llm_readable": "Email sent successfully to ..."
+        }
+    """
+    import base64
+    config = load_config()
+    token = config.get("GMAIL_ACCESS_TOKEN")
+    
+    if not token:
+        return {
+            "sent": False,
+            "error": "Missing GMAIL_ACCESS_TOKEN",
+            "recipients": to,
+            "llm_readable": "[email] Missing GMAIL_ACCESS_TOKEN"
+        }
+    
+    # Clean token (remove whitespace, newlines)
+    token = token.strip()
+    
+    try:
+        # Build email headers
+        to_header = ", ".join(to)
+        headers_list = [f"To: {to_header}", f"Subject: {subject}"]
+        
+        if cc:
+            headers_list.append(f"Cc: {', '.join(cc)}")
+        if bcc:
+            headers_list.append(f"Bcc: {', '.join(bcc)}")
+        
+        headers_list.append("Content-Type: text/plain; charset=utf-8")
+        headers_str = "\r\n".join(headers_list)
+        
+        # Build raw email message
+        raw = f"{headers_str}\r\n\r\n{body}".encode("utf-8")
+        b64 = base64.urlsafe_b64encode(raw).decode("utf-8")
+        
+        # Send email via Gmail API
+        url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+        # Ensure token is clean (no whitespace/newlines)
+        token_clean = token.strip()
+        headers = {"Authorization": f"Bearer {token_clean}", "Content-Type": "application/json"}
+        payload = {"raw": b64}
+        
+        resp = requests.post(url, json=payload, headers=headers, timeout=15)
+        
+        if resp.status_code != 200:
+            error_text = resp.text[:500]
+            error_details = ""
+            try:
+                error_json = resp.json()
+                error_details = f" - {error_json.get('error', {}).get('message', '')}"
+            except:
+                pass
+            
+            return {
+                "sent": False,
+                "error": f"HTTP {resp.status_code}{error_details}: {error_text}",
+                "recipients": to,
+                "llm_readable": f"[email] Failed to send: HTTP {resp.status_code}{error_details}"
+            }
+        
+        data = resp.json()
+        all_recipients = to + (cc or []) + (bcc or [])
+        
+        return {
+            "sent": True,
+            "id": data.get("id", ""),
+            "threadId": data.get("threadId", ""),
+            "recipients": all_recipients,
+            "llm_readable": f"Email sent successfully to {', '.join(to)}"
+        }
+        
+    except Exception as e:
+        error_msg = f"[email] Error: {e}"
+        return {
+            "sent": False,
+            "error": str(e),
+            "recipients": to,
+            "llm_readable": error_msg
+        }
+
+
+def create_calendar_event(
+    summary: str,
+    start_time: str,
+    end_time: str,
+    description: Optional[str] = None,
+    attendees: Optional[List[str]] = None,
+    location: Optional[str] = None,
+    timezone: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Create a calendar event using Google Calendar API.
+    
+    Parameters:
+        summary: Event title/summary
+        start_time: Event start time in ISO 8601 or RFC3339 format
+        end_time: Event end time in ISO 8601 or RFC3339 format
+        description: Optional event description/details
+        attendees: Optional list of attendee email addresses
+        location: Optional event location (physical address or meeting link)
+        timezone: Optional timezone (e.g., 'Asia/Hong_Kong', 'America/New_York')
+    
+    Returns:
+        {
+            "created": True/False,
+            "id": "event_id",
+            "htmlLink": "calendar_link",
+            "llm_readable": "Calendar event created: ..."
+        }
+    """
+    config = load_config()
+    token = config.get("GOOGLE_CALENDAR_ACCESS_TOKEN") or config.get("GMAIL_ACCESS_TOKEN")
+    
+    if not token:
+        return {
+            "created": False,
+            "error": "Missing GOOGLE_CALENDAR_ACCESS_TOKEN",
+            "id": "",
+            "htmlLink": "",
+            "llm_readable": "[calendar] Missing GOOGLE_CALENDAR_ACCESS_TOKEN"
+        }
+    
+    try:
+        calendar_id = "primary"
+        # Ensure token is clean (no whitespace/newlines)
+        token_clean = token.strip()
+        headers = {"Authorization": f"Bearer {token_clean}", "Content-Type": "application/json"}
+        
+        # Build event body
+        body: Dict[str, Any] = {
+            "summary": summary,
+            "start": {"dateTime": start_time},
+            "end": {"dateTime": end_time}
+        }
+        
+        if description:
+            body["description"] = description
+        
+        if attendees:
+            body["attendees"] = [{"email": email} for email in attendees]
+        
+        if location:
+            body["location"] = location
+        
+        if timezone:
+            body["start"]["timeZone"] = timezone
+            body["end"]["timeZone"] = timezone
+        
+        # Create event via Google Calendar API
+        url = f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events"
+        resp = requests.post(url, json=body, headers=headers, timeout=15)
+        
+        if resp.status_code not in (200, 201):
+            error_text = resp.text[:500]
+            error_details = ""
+            try:
+                error_json = resp.json()
+                error_msg = error_json.get('error', {}).get('message', '')
+                error_details = f" - {error_msg}"
+                if 'insufficientPermissions' in error_text or 'insufficient' in error_msg.lower():
+                    error_details += "\n  → You need to authorize Google Calendar API scope in OAuth Playground"
+                    error_details += "\n  → Required scope: https://www.googleapis.com/auth/calendar"
+            except:
+                pass
+            
+            return {
+                "created": False,
+                "error": f"HTTP {resp.status_code}{error_details}: {error_text}",
+                "id": "",
+                "htmlLink": "",
+                "llm_readable": f"[calendar] Failed to create event: HTTP {resp.status_code}{error_details}"
+            }
+        
+        data = resp.json()
+        event_id = data.get("id", "")
+        html_link = data.get("htmlLink", "")
+        
+        return {
+            "created": True,
+            "id": event_id,
+            "htmlLink": html_link,
+            "llm_readable": f"Calendar event created: {summary} at {html_link}"
+        }
+        
+    except Exception as e:
+        error_msg = f"[calendar] Error: {e}"
+        return {
+            "created": False,
+            "error": str(e),
+            "id": "",
+            "htmlLink": "",
             "llm_readable": error_msg
         }
